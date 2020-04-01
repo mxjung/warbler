@@ -94,7 +94,6 @@ def login():
     """Handle user login."""
 
     form = LoginForm()
-
     if form.validate_on_submit():
         user = User.authenticate(form.username.data,
                                  form.password.data)
@@ -114,6 +113,12 @@ def logout():
     """Handle logout of user."""
 
     # IMPLEMENT THIS
+    session.pop(CURR_USER_KEY)
+
+    flash("Logged out!", 'success')
+    return redirect('/login')
+   
+
 
 
 ##############################################################################
