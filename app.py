@@ -334,10 +334,9 @@ def homepage():
                     .query
                     .order_by(Message.timestamp.desc())
                     .limit(100)
-                    .filter()
-                    # .all())
+                    .all())
     
-
+        breakpoint()
         return render_template('home.html', messages=messages)
 
     else:

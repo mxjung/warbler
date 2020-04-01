@@ -4,6 +4,7 @@ from datetime import datetime
 
 from flask_bcrypt import Bcrypt
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import or_
 
 bcrypt = Bcrypt()
 db = SQLAlchemy()
