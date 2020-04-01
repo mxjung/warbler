@@ -112,13 +112,10 @@ def login():
 def logout():
     """Handle logout of user."""
 
-    # IMPLEMENT THIS
-    session.pop(CURR_USER_KEY)
+    do_logout()
 
     flash("Logged out!", 'success')
     return redirect('/login')
-   
-
 
 
 ##############################################################################
@@ -216,8 +213,6 @@ def stop_following(follow_id):
 def profile():
     """Update profile for current user."""
 
-    # IMPLEMENT THIS
-
     # Check if a User is logged in
     if not g.user:
         flash("Access unauthorized.", "danger")
@@ -249,7 +244,6 @@ def profile():
             return redirect('/')
 
     return render_template('users/edit.html', form=form)
-
 
 
 @app.route('/users/delete', methods=["POST"])
@@ -317,6 +311,44 @@ def messages_destroy(message_id):
     return redirect(f"/users/{g.user.id}")
 
 
+@app.route('/messages/<int:message_id>/like', methods=["POST"])
+def messages_likes(message_id):
+    """ Adding this message to the likes of a specific user"""
+    # append this messaga to the g.user.likes
+
+    message = Message.query.get_or_404(message_id)
+
+    if message.user.id != g.user.id:
+        if message not in g.user.likes:
+            g.user.likes.append(message)
+
+        else:
+            g.user.likes.remove(message)
+
+        db.session.commit()
+
+        return redirect("/")
+
+    else:
+        flash("You cannot like your own message", "danger")
+        return redirect('/')
+
+
+@app.route('/users/<int:user_id>/likes')
+def show_likes(user_id):
+    """Show list of messages this user has liked."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    likes = [msg.id for msg in g.user.likes]
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html',
+                           user=user,
+                           likes=likes)
+
+
 ##############################################################################
 # Homepage and error pages
 
@@ -329,15 +361,20 @@ def homepage():
     - logged in: 100 most recent messages of followed_users
     """
 
+    # likes = [1001]
+    likes = [msg.id for msg in g.user.likes]
+    following_id = [user.id for user in g.user.following]
+    following_id.append(g.user.id)
+
     if g.user:
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_id))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-    
-        breakpoint()
-        return render_template('home.html', messages=messages)
+
+        return render_template('home.html', messages=messages, likes=likes)
 
     else:
         return render_template('home-anon.html')
