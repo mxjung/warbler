@@ -4,20 +4,18 @@
 #
 #    python -m unittest test_user_model.py
 
-
-from app import app
-import os
-from unittest import TestCase
-
-from models import db, User, Message, Follows
-
 # BEFORE we import our app, let's set an environmental variable
 # to use a different database for tests (we need to do this
 # before we import our app, since that will have already
 # connected to the database
+from models import db, User, Message, Follows
+from unittest import TestCase
+# from flask_sqlalchemy import SQLAlchemy
+import sqlalchemy.exc 
 
+from app import app
+import os
 os.environ['DATABASE_URL'] = "postgresql:///warbler-test"
-
 
 # Now we can import app
 
@@ -26,12 +24,12 @@ os.environ['DATABASE_URL'] = "postgresql:///warbler-test"
 # once for all tests --- in each test, we'll delete the data
 # and create fresh new clean test data
 
-# db.drop_all()
+db.drop_all()
 db.create_all()
 
 
 class UserModelTestCase(TestCase):
-    """Test views for messages."""
+    """Test model for users."""
 
     def setUp(self):
         """Create test client, add sample data."""
@@ -52,6 +50,11 @@ class UserModelTestCase(TestCase):
             password="HASHED_PASSWORD2"
         )
 
+        db.session.add(u1)
+        db.session.add(u2)
+
+        db.session.commit()
+
         self.u1 = u1
         self.u2 = u2
 
@@ -65,33 +68,35 @@ class UserModelTestCase(TestCase):
     def test_user_model(self):
         """Does basic model work?"""
 
-        u = User(
-            email="test@test.com",
-            username="testuser",
-            password="HASHED_PASSWORD"
-        )
+        # u = User(
+        #     email="test@test.com",
+        #     username="testuser",
+        #     password="HASHED_PASSWORD"
+        # )
 
-        db.session.add(u)
+        db.session.add(self.u1)
         db.session.commit()
 
         # User should have no messages & no followers
-        self.assertEqual(len(u.messages), 0)
-        self.assertEqual(len(u.followers), 0)
+        self.assertEqual(len(self.u1.messages), 0)
+        self.assertEqual(len(self.u1.followers), 0)
 
     def test_user_repr(self):
         """Does User repr work?"""
 
-        u = User(
-            email="test@test.com",
-            username="testuser",
-            password="HASHED_PASSWORD"
-        )
+        # u = User(
+        #     email="test@test.com",
+        #     username="testuser",
+        #     password="HASHED_PASSWORD"
+        # )
 
-        db.session.add(u)
+        db.session.add(self.u1)
         db.session.commit()
 
-        self.assertEqual(str(u), f'<User #{u.id}: {u.username}, {u.email}>')
-        self.assertNotEqual(str(u), f'<User #{u.username}: {u.id}, {u.email}>')
+        self.assertEqual(
+            str(self.u1), f'<User #{self.u1.id}: {self.u1.username}, {self.u1.email}>')
+        self.assertNotEqual(
+            str(self.u1), f'<User #{self.u1.username}: {self.u1.id}, {self.u1.email}>')
 
     def test_user_following(self):
         """Does User following method work?"""
@@ -130,16 +135,47 @@ class UserModelTestCase(TestCase):
         self.assertEqual(user3.email, "genna@user.com")
         self.assertEqual(user3.image_url, "/static/default-pic.png")
 
-    def test_invalid_signup(self):
-        """ Test User.sign up does not work with invalid parameters"""
-        try:
-            User.signup("genna",
-                        "genna@user.com",
+    def test_invalid_signup_unique(self):
+        """ Test User.sign up does not work with invalid parameters
+            specifically for unique username"""
+        
+        with self.assertRaises(sqlalchemy.exc.IntegrityError):
+            User.signup("testuser",
+                        "test@test.com",
                         "password",
+                        "/static/default-pic.png"
                         )
-        except TypeError:
-            user = User.query.filter(User.username == "genna").all()
-            self.assertEqual(user, [])
+            db.session.commit()
+
+    def test_invalid_signup_null_username(self):
+        # Testing for Nullable
+        with self.assertRaises(sqlalchemy.exc.IntegrityError):
+            User.signup(None,
+                        "test@test.com",
+                        "password",
+                        "/static/default-pic.png"
+                        )
+            db.session.commit()
+
+    def test_invalid_signup_null_email(self):
+        # Testing for Nullable
+        with self.assertRaises(sqlalchemy.exc.IntegrityError):
+            User.signup("testuser",
+                        None,
+                        "password",
+                        "/static/default-pic.png"
+                        )
+            db.session.commit()
+    
+    def test_invalid_signup_null_password(self):
+        # Testing for Nullable
+        with self.assertRaises(ValueError):
+            User.signup("testuser",
+                        "test@test.com",
+                        None,
+                        "/static/default-pic.png"
+                        )
+            db.session.commit()
 
     def test_user_authenticate(self):
         """ Does User.authenticate work successfully? """
