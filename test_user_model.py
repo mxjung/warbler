@@ -40,7 +40,27 @@ class UserModelTestCase(TestCase):
         Message.query.delete()
         Follows.query.delete()
 
+        u1 = User(
+            email="test@test.com",
+            username="testuser",
+            password="HASHED_PASSWORD"
+        )
+
+        u2 = User(
+            email="test2@test.com",
+            username="testuser2",
+            password="HASHED_PASSWORD2"
+        )
+
+        self.u1 = u1
+        self.u2 = u2
+
         self.client = app.test_client()
+
+    def tearDown(self):
+        """Clean up fouled transactions."""
+
+        db.session.rollback()
 
     def test_user_model(self):
         """Does basic model work?"""
@@ -76,22 +96,70 @@ class UserModelTestCase(TestCase):
     def test_user_following(self):
         """Does User following method work?"""
 
-        u = User(
-            email="test@test.com",
-            username="testuser",
-            password="HASHED_PASSWORD"
-        )
+        self.u2.following.append(self.u1)
 
-        u2 = User(
-            email="test2@test.com",
-            username="testuser2",
-            password="HASHED_PASSWORD2"
-        )
-
-        u2.following.append(u)
-
-        db.session.add(u)
-        db.session.add(u2)
+        db.session.add(self.u1)
+        db.session.add(self.u2)
         db.session.commit()
 
-        self.assertEqual(u2.is_following(u), True)
+        self.assertEqual(self.u2.is_following(self.u1), True)
+        self.assertEqual(self.u1.is_following(self.u2), False)
+
+    def test_user_followed_by(self):
+        """Does User is_followed_by work correctly? """
+
+        self.u2.followers.append(self.u1)
+
+        db.session.add(self.u1)
+        db.session.add(self.u2)
+        db.session.commit()
+
+        self.assertEqual(self.u2.is_followed_by(self.u1), True)
+        self.assertEqual(self.u1.is_followed_by(self.u2), False)
+
+    def test_user_signup(self):
+        """ Does User.signup work successfully? """
+
+        User.signup("genna",
+                    "genna@user.com",
+                    "password",
+                    "/static/default-pic.png"
+                    )
+
+        user3 = User.query.filter(User.username == "genna").one()
+        self.assertEqual(user3.email, "genna@user.com")
+        self.assertEqual(user3.image_url, "/static/default-pic.png")
+
+    def test_invalid_signup(self):
+        """ Test User.sign up does not work with invalid parameters"""
+        try:
+            User.signup("genna",
+                        "genna@user.com",
+                        "password",
+                        )
+        except TypeError:
+            user = User.query.filter(User.username == "genna").all()
+            self.assertEqual(user, [])
+
+    def test_user_authenticate(self):
+        """ Does User.authenticate work successfully? """
+
+        User.signup("genna",
+                    "genna@user.com",
+                    "password",
+                    "/static/default-pic.png"
+                    )
+
+        authentication = User.authenticate("genna",
+                                           "password",
+                                           )
+        failed_authentication_password = User.authenticate("genna",
+                                                           "failed",
+                                                           )
+        failed_authentication_username = User.authenticate("failed",
+                                                           "password",
+                                                           )
+
+        self.assertNotEqual(authentication, False)
+        self.assertEqual(failed_authentication_password, False)
+        self.assertEqual(failed_authentication_username, False)
