@@ -178,6 +178,20 @@ def users_followers(user_id):
     user = User.query.get_or_404(user_id)
     return render_template('users/followers.html', user=user)
 
+@app.route('/users/<int:user_id>/likes')
+def show_likes(user_id):
+    """Show list of messages this user has liked."""
+
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    likes = [msg.id for msg in g.user.likes]
+    user = User.query.get_or_404(user_id)
+    return render_template('users/likes.html',
+                           user=user,
+                           likes=likes)
+
 
 @app.route('/users/follow/<int:follow_id>', methods=['POST'])
 def add_follow(follow_id):
@@ -314,39 +328,22 @@ def messages_destroy(message_id):
 @app.route('/messages/<int:message_id>/like', methods=["POST"])
 def messages_likes(message_id):
     """ Adding this message to the likes of a specific user"""
-    # append this messaga to the g.user.likes
-
-    message = Message.query.get_or_404(message_id)
-
-    if message.user.id != g.user.id:
-        if message not in g.user.likes:
-            g.user.likes.append(message)
-
-        else:
-            g.user.likes.remove(message)
-
-        db.session.commit()
-
-        return redirect("/")
-
-    else:
-        flash("You cannot like your own message", "danger")
-        return redirect('/')
-
-
-@app.route('/users/<int:user_id>/likes')
-def show_likes(user_id):
-    """Show list of messages this user has liked."""
 
     if not g.user:
         flash("Access unauthorized.", "danger")
         return redirect("/")
 
-    likes = [msg.id for msg in g.user.likes]
-    user = User.query.get_or_404(user_id)
-    return render_template('users/likes.html',
-                           user=user,
-                           likes=likes)
+    message = Message.query.get_or_404(message_id)
+
+    if message not in g.user.likes:
+        g.user.likes.append(message)
+
+    else:
+        g.user.likes.remove(message)
+
+    db.session.commit()
+
+    return redirect("/")
 
 
 ##############################################################################
@@ -361,12 +358,11 @@ def homepage():
     - logged in: 100 most recent messages of followed_users
     """
 
-    # likes = [1001]
-    likes = [msg.id for msg in g.user.likes]
-    following_id = [user.id for user in g.user.following]
-    following_id.append(g.user.id)
-
     if g.user:
+        likes = [msg.id for msg in g.user.likes]
+        following_id = [user.id for user in g.user.following]
+        following_id.append(g.user.id)
+
         messages = (Message
                     .query
                     .filter(Message.user_id.in_(following_id))
