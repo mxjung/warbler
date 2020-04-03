@@ -31,7 +31,7 @@ class UserViewTests(TestCase):
         Follows.query.delete()
 
         user = User.signup("testuser", "test@test.com", "HASHED_PASSWORD", "image")
-        user2 = User.signup("testuser2", "test@test2.com", "HASHED_PASSWORD2", "image")
+        user2 = User.signup("testuser2", "test@test2.com", "HASHED_PASSWORD2", "image2")
 
         self.user = user
         self.user2 = user2
@@ -102,6 +102,7 @@ class UserViewTests(TestCase):
             html = resp.get_data(as_text=True)
 
             self.assertEqual(resp.status_code, 200)
+            # Look for id (items in html that aren't subject to change as much)
             self.assertIn('<h2 class="join-message">Welcome back.</h2>', html)
 
     def test_login_POST(self):

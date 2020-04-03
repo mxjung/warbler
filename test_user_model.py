@@ -70,12 +70,6 @@ class UserModelTestCase(TestCase):
     def test_user_model(self):
         """Does basic model work?"""
 
-        # u = User(
-        #     email="test@test.com",
-        #     username="testuser",
-        #     password="HASHED_PASSWORD"
-        # )
-
         db.session.add(self.u1)
         db.session.commit()
 
@@ -85,12 +79,6 @@ class UserModelTestCase(TestCase):
 
     def test_user_repr(self):
         """Does User repr work?"""
-
-        # u = User(
-        #     email="test@test.com",
-        #     username="testuser",
-        #     password="HASHED_PASSWORD"
-        # )
 
         db.session.add(self.u1)
         db.session.commit()
