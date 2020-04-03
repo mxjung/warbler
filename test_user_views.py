@@ -4,9 +4,10 @@ import os
 os.environ['DATABASE_URL'] = "postgresql:///warbler-test"
 
 
-from app import app
+from app import app, CURR_USER_KEY
 from unittest import TestCase
 import sqlalchemy.exc
+
 
 from models import db, User, Message, Follows
 
@@ -29,18 +30,12 @@ class UserViewTests(TestCase):
         Message.query.delete()
         Follows.query.delete()
 
-        # u1 = User(
-        #     email="test@test.com",
-        #     username="testuser",
-        #     password="HASHED_PASSWORD"
-        # )
+        user = User.signup("testuser", "test@test.com", "HASHED_PASSWORD", "image")
+        user2 = User.signup("testuser2", "test@test2.com", "HASHED_PASSWORD2", "image")
 
-        User.signup("testuser", "test@test.com", "HASHED_PASSWORD", "image")
-
-        # db.session.add(u1)
+        self.user = user
+        self.user2 = user2
         db.session.commit()
-
-        # self.u1_id = u1.id
 
         self.client = app.test_client()
 
@@ -52,7 +47,7 @@ class UserViewTests(TestCase):
     def test_signup_GET(self):
         """Get request to /signup"""
 
-        with app.test_client() as client:
+        with self.client as client:
             resp = client.get('/signup')
             html = resp.get_data(as_text=True)
 
@@ -63,7 +58,7 @@ class UserViewTests(TestCase):
         """Post request to /signup"""
 
         d = {"username": "maxjung", "password": "HASHED_PASSWORD", "email": "genna@gmail.com"}
-        with app.test_client() as client:
+        with self.client as client:
 
             resp = client.post('/signup', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
@@ -75,7 +70,7 @@ class UserViewTests(TestCase):
         """Post request to /signup with invalid password"""
 
         d = {"username": "maxjung", "password": "five", "email": "genna@gmail.com"}
-        with app.test_client() as client:
+        with self.client as client:
 
             resp = client.post('/signup', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
@@ -89,7 +84,7 @@ class UserViewTests(TestCase):
         """Post request to /signup with invalid duplicate username"""
 
         d = {"username": "testuser", "password": "password", "email": "genna@gmail.com"}
-        with app.test_client() as client:
+        with self.client as client:
 
             resp = client.post('/signup', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
@@ -102,7 +97,7 @@ class UserViewTests(TestCase):
     def test_login_GET(self):
         """Get request to /login"""
 
-        with app.test_client() as client:
+        with self.client as client:
             resp = client.get('/login')
             html = resp.get_data(as_text=True)
 
@@ -113,7 +108,7 @@ class UserViewTests(TestCase):
         """Post correct request to /login"""
 
         d = {"username": "testuser", "password": "HASHED_PASSWORD"}
-        with app.test_client() as client:
+        with self.client as client:
             resp = client.post('/login', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
             self.assertEqual(resp.status_code, 200)
@@ -123,7 +118,7 @@ class UserViewTests(TestCase):
         """Post invalid request to /login with incorrect password"""
 
         d = {"username": "testuser", "password": "INVALID_PASSWORD"}
-        with app.test_client() as client:
+        with self.client as client:
             resp = client.post('/login', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
             self.assertEqual(resp.status_code, 200)
@@ -133,10 +128,62 @@ class UserViewTests(TestCase):
         """Post invalid request to /login with incorrect username"""
 
         d = {"username": "wronguser", "password": "HASHED_PASSWORD"}
-        with app.test_client() as client:
+        with self.client as client:
             resp = client.post('/login', data=d, follow_redirects=True)
             html = resp.get_data(as_text=True)
             self.assertEqual(resp.status_code, 200)
             self.assertIn('<div class="alert alert-danger">Invalid credentials.</div>', html)
 
-    # Finished post for login view method
+    def test_followers_page(self):
+        """Test the followers page"""
+
+        self.user.followers.append(self.user2)
+        db.session.commit()
+
+        with self.client as client:
+            with client.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.user.id
+
+            resp = client.get(f'/users/{self.user.id}/followers')
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<p>@testuser2</p>', html)
+
+    def test_following_page(self):
+        """Test the following page"""
+
+        self.user2.following.append(self.user)
+        db.session.commit()
+
+        with self.client as client:
+            with client.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.user2.id
+
+            resp = client.get(f'/users/{self.user2.id}/following')
+            html = resp.get_data(as_text=True)
+
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('<p>@testuser</p>', html)
+
+    def test_following_page_signed_out(self):
+        """Test the following page"""
+
+        resp = self.client.get(f'/users/{self.user.id}/following', 
+                               follow_redirects=True)
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('<div class="alert alert-danger">Access unauthorized.</div>', html)
+
+    def test_followers_page_signed_out(self):
+        """Test the followers page"""
+
+        resp = self.client.get(f'/users/{self.user.id}/followers', 
+                               follow_redirects=True)
+        html = resp.get_data(as_text=True)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('<div class="alert alert-danger">Access unauthorized.</div>', html)
+
+    
