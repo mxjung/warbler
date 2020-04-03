@@ -269,7 +269,7 @@ def delete_user():
         return redirect("/")
 
     do_logout()
-
+    
     db.session.delete(g.user)
     db.session.commit()
 
